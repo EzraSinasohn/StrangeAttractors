@@ -11,7 +11,7 @@ from matplotlib.figure import Figure
 
 class MplCanvas(FigureCanvasQTAgg):
 
-    def __init__(self, parent=None, width=5, height=4, dpi=100):
+    def __init__(self, parent=None, width=10, height=5, dpi=4):
         fig = Figure(figsize=(width, height), dpi=dpi)
         self.axes = fig.add_subplot(111, projection = '3d')
         super().__init__(fig)
@@ -43,8 +43,8 @@ class MainWindow(QMainWindow):
         self.langford_button.toggled.connect(self.langford_selected)
         self.rossler_button.toggled.connect(self.rossler_selected)
         
-        self.sc = MplCanvas(self, width=5, height=4, dpi=100)
-        self.sc.setFixedHeight(400)
+        self.sc = MplCanvas(self, width=10, height=8, dpi=100)
+        self.sc.setFixedHeight(800)
         self.sc.axes.plot(self.graph_shown[0], self.graph_shown[1], self.graph_shown[2])
         
         self.prandtl = self.defaults[0]
@@ -84,6 +84,9 @@ class MainWindow(QMainWindow):
         self.x0_box.setSingleStep(0.1)
         self.y0_box.setSingleStep(0.1)
         self.z0_box.setSingleStep(0.1)
+        
+        self.reset_button = QPushButton('Reset')
+        self.reset_button.clicked.connect(self.reset)
         
         self.prandtl_box = QSlider()
         self.rayleigh_box = QSlider()
@@ -204,7 +207,7 @@ class MainWindow(QMainWindow):
         self.layout_graph.addWidget(self.sc)
         self.layout_buttons.addLayout(self.layout_graph)
         
-        typers = [
+        self.typers = [
             self.x0_label,
             self.x0_box,
             self.y0_label,
@@ -239,12 +242,15 @@ class MainWindow(QMainWindow):
             self.rb_box,
             self.rc_label,
             self.rc_box,
+            self.reset_button,
         ]
         self.layout_variables.setSpacing(1)
-        for t in typers:
+        for t in self.typers:
             self.layout_variables.addWidget(t)
             if isinstance(t, QLabel) or isinstance(t, QDoubleSpinBox) or isinstance(t, QSpinBox):
                 t.setFixedHeight(15)
+            elif isinstance(t, QPushButton):
+                t.setFixedHeight(20)
             else:
                 t.setFixedHeight(5)
             t.hide()
@@ -398,19 +404,19 @@ class MainWindow(QMainWindow):
             self.sc.axes.cla()
             if self.lorenz_button.isChecked():
                 graph = lorenz(self.prandtl, self.rayleigh, self.geo, self.x0, self.y0, self.z0, self.dt, self.N)
-                self.sc.axes.plot(graph[0], graph[1], graph[2])
+                self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'red', linewidth = 0.5)
                 self.sc.draw()
             if self.thomas_button.isChecked():
                 graph = thomas(self.tb, self.x0, self.y0, self.z0, self.dt, self.N)
-                self.sc.axes.plot(graph[0], graph[1], graph[2])
+                self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'orange', linewidth = 0.5)
                 self.sc.draw()
             if self.langford_button.isChecked():
                 graph = langford(self.la, self.lb, self.lc, self.ld, self.le, self.lf, self.x0, self.y0, self.z0, self.dt, self.N)
-                self.sc.axes.plot(graph[0], graph[1], graph[2])
+                self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'green', linewidth = 0.5)
                 self.sc.draw()
             if self.rossler_button.isChecked():
                 graph = rossler(self.ra, self.rb, self.rc, self.x0, self.y0, self.z0, self.dt, self.N)
-                self.sc.axes.plot(graph[0], graph[1], graph[2])
+                self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'blue', linewidth = 0.5)
                 self.sc.draw()
         return slider_changed_nest
         
@@ -425,6 +431,7 @@ class MainWindow(QMainWindow):
         self.z0_label.show()
         self.N_label.show()
         self.N_box.show()
+        self.reset_button.show()
         self.prandtl_box.show()
         self.rayleigh_box.show()
         self.geo_box.show()
@@ -433,7 +440,7 @@ class MainWindow(QMainWindow):
         self.geo_label.show()
         self.sc.axes.cla()
         graph = lorenz(self.prandtl, self.rayleigh, self.geo, self.x0, self.y0, self.z0, self.dt, self.N)
-        self.sc.axes.plot(graph[0], graph[1], graph[2])
+        self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'red', linewidth = 0.5)
         self.sc.draw()
         
     
@@ -448,11 +455,12 @@ class MainWindow(QMainWindow):
         self.z0_label.show()
         self.N_label.show()
         self.N_box.show()
+        self.reset_button.show()
         self.tb_box.show()
         self.tb_label.show()
         self.sc.axes.cla()
         graph = thomas(self.tb, self.x0, self.y0, self.z0, self.dt, self.N)
-        self.sc.axes.plot(graph[0], graph[1], graph[2])
+        self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'orange', linewidth = 0.5)
         self.sc.draw()
         self.layout_variables.addLayout(self.layout_buttons)
                 
@@ -467,6 +475,7 @@ class MainWindow(QMainWindow):
         self.z0_label.show()
         self.N_label.show()
         self.N_box.show()
+        self.reset_button.show()
         self.la_box.show()
         self.lb_box.show()
         self.lc_box.show()
@@ -481,7 +490,7 @@ class MainWindow(QMainWindow):
         self.lf_label.show()
         self.sc.axes.cla()
         graph = langford(self.la, self.lb, self.lc, self.ld, self.le, self.lf, self.x0, self.y0, self.z0, self.dt, self.N)
-        self.sc.axes.plot(graph[0], graph[1], graph[2])
+        self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'green', linewidth = 0.5)
         self.sc.draw()
         
     def rossler_selected(self):
@@ -495,6 +504,7 @@ class MainWindow(QMainWindow):
         self.z0_label.show()
         self.N_label.show()
         self.N_box.show()
+        self.reset_button.show()
         self.ra_box.show()
         self.rb_box.show()
         self.rc_box.show()
@@ -503,7 +513,7 @@ class MainWindow(QMainWindow):
         self.rc_label.show()
         self.sc.axes.cla()
         graph = rossler(self.ra, self.rb, self.rc, self.x0, self.y0, self.z0, self.dt, self.N)
-        self.sc.axes.plot(graph[0], graph[1], graph[2])
+        self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'blue', linewidth = 0.5)
         self.sc.draw()
         
     def lorenz(prandtl, rayleigh, geo, x0, y0, z0, dt, N):
@@ -581,6 +591,34 @@ class MainWindow(QMainWindow):
             y_list.append(y)
             z_list.append(z)
         return [x_list, y_list, z_list]
+    
+    def reset(self):
+        self.x0_box.setValue(0.1)
+        self.y0_box.setValue(0)
+        self.z0_box.setValue(0)
+        
+        self.N_box.setValue(10000)
+        
+        self.prandtl_box.setValue(int(1000000*self.defaults[0]))
+        self.rayleigh_box.setValue(int(1000000*self.defaults[1]))
+        self.geo_box.setValue(int(1000000*self.defaults[2]))
+        
+        self.tb_box.setValue(int(1000000*self.defaults[3]))
+        
+        self.la_box.setValue(int(1000000*self.defaults[4]))
+        self.lb_box.setValue(int(1000000*self.defaults[5]))
+        self.lc_box.setValue(int(1000000*self.defaults[6]))
+        self.ld_box.setValue(int(1000000*self.defaults[7]))
+        self.le_box.setValue(int(1000000*self.defaults[8]))
+        self.lf_box.setValue(int(1000000*self.defaults[9]))
+        
+        self.ra_box.setValue(int(1000000*self.defaults[10]))
+        self.rb_box.setValue(int(1000000*self.defaults[11]))
+        self.rc_box.setValue(int(1000000*self.defaults[12]))
+
+        self.sc.axes.view_init(azim = -60, elev = 30, roll = 0)
+        self.sc.draw()
+        
         
 app = QApplication(sys.argv)
 window = MainWindow()
