@@ -8,7 +8,3 @@ Team: Inigo Concepcion, Felina Kay, Yijun Lin, Bryanna Nguyen, Ezra Sinasohn, Tr
 1. Navigate to the project directory
 2. Run `pip install -r requirements.txt`
 3. Run `python strange_attractors.py` to see the visualizations
-
-The GUI is in `strange_attractors.py`. The mathematical implementations are
-organized in separate modules under `attractors/`, with one module for each
-attractor.
