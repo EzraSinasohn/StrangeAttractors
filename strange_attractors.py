@@ -620,11 +620,6 @@ class MainWindow(QMainWindow):
         self.sc.draw()
         
         
-app = QApplication(sys.argv)
-window = MainWindow()
-window.show()
-app.exec()
-
 prandtl = 10
 rayleigh = 28
 geo = 8.0/3.0
@@ -771,3 +766,9 @@ def cycle(values, speed = 10, pitch = 15):
 #timelapse(lorenz_plot, 90, 0, False)
 #timelapse1(lorenz_plot)
 #timelapse(thomas_plot)
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
