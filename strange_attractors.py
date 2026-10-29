@@ -1,16 +1,12 @@
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import QSize, Qt
 from PyQt5.QtWidgets import *
 import sys
+import numpy as np
 import matplotlib
+import matplotlib.pyplot as plt
 matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
-
-from attractors.langford import generate as langford
-from attractors.lorenz import generate as lorenz
-from attractors.rossler import generate as rossler
-from attractors.thomas import generate as thomas
-
 
 class MplCanvas(FigureCanvasQTAgg):
 
@@ -19,15 +15,31 @@ class MplCanvas(FigureCanvasQTAgg):
         self.axes = fig.add_subplot(111, projection = '3d')
         super().__init__(fig)
 
+class MplCanvas2d(FigureCanvasQTAgg):
+
+    def __init__(self, parent=None, width=10, height=5, dpi=4):
+        fig = Figure(figsize=(width, height), dpi=dpi)
+        self.axes = fig.add_subplot(111)
+        super().__init__(fig)
+
 class MainWindow(QMainWindow):
+    main_window = True
     def __init__(self):
         super().__init__()
+        
+        if self.main_window:
+            self.g_type = ''
+            self.children = []
+        
+        self.move(0, 0)
+        
+        self.graph = []
         
         self.x0 = 0.1
         self.y0 = 0
         self.z0 = 0
-        self.N = 10000
-        self.dt = 0.01
+        self.N = 100000
+        self.dt = 0.001
         
         self.defaults = [10, 28, 8/3, 0.195, 0.95, 0.7, 0.6, 3.5, 0.25, 0.1, 0.2, 0.2, 5.7]
         
@@ -36,15 +48,23 @@ class MainWindow(QMainWindow):
         self.layout_variables = QVBoxLayout()
         self.layout_buttons = QHBoxLayout()
         self.layout_graph = QVBoxLayout()
+        
         self.lorenz_button = QRadioButton("Lorenz")
         self.thomas_button = QRadioButton("Thomas")
         self.langford_button = QRadioButton("Langford")
         self.rossler_button = QRadioButton("Rossler")
         
+        self.new_window_button = QPushButton('New Window')
+        
+        if not self.main_window:
+            self.compare_values_button = QPushButton('Compare Values')
+    
         self.lorenz_button.toggled.connect(self.lorenz_selected)
         self.thomas_button.toggled.connect(self.thomas_selected)
         self.langford_button.toggled.connect(self.langford_selected)
         self.rossler_button.toggled.connect(self.rossler_selected)
+            
+        self.new_window_button.clicked.connect(self.new_window)
         
         self.sc = MplCanvas(self, width=10, height=8, dpi=100)
         self.sc.setFixedHeight(800)
@@ -70,23 +90,33 @@ class MainWindow(QMainWindow):
         self.x0_label = QLabel('x0')
         self.x0_box = QDoubleSpinBox()
         self.x0_box.setValue(self.x0)
+        self.x0_box.setDecimals(10)
         
         self.y0_label = QLabel('y0')
         self.y0_box = QDoubleSpinBox()
         self.y0_box.setValue(self.y0)
+        self.y0_box.setDecimals(10)
         
         self.z0_label = QLabel('z0')
         self.z0_box = QDoubleSpinBox()
         self.z0_box.setValue(self.z0)
+        self.z0_box.setDecimals(10)
         
-        self.N_label = QLabel('N')
-        self.N_box = QSpinBox()
-        self.N_box.setRange(0, 1000000)
-        self.N_box.setValue(self.N)
+        if self.main_window:
+            self.N_label = QLabel('N')
+            self.N_box = QSpinBox()
+            self.N_box.setRange(0, 1000000)
+            self.N_box.setValue(self.N)
+            
+            self.dt_label = QLabel('dt')
+            self.dt_box = QDoubleSpinBox()
+            self.dt_box.setRange(0, 10)
+            self.dt_box.setValue(self.dt)
+            self.dt_box.setDecimals(10)
         
-        self.x0_box.setSingleStep(0.1)
-        self.y0_box.setSingleStep(0.1)
-        self.z0_box.setSingleStep(0.1)
+        self.x0_box.setSingleStep(0.0000000001)
+        self.y0_box.setSingleStep(0.0000000001)
+        self.z0_box.setSingleStep(0.0000000001)
         
         self.reset_button = QPushButton('Reset')
         self.reset_button.clicked.connect(self.reset)
@@ -181,7 +211,10 @@ class MainWindow(QMainWindow):
         self.y0_box.valueChanged.connect(self.slider_changed(self.y0_box))
         self.z0_box.valueChanged.connect(self.slider_changed(self.z0_box))
         
-        self.N_box.valueChanged.connect(self.slider_changed(self.N_box))
+        if self.main_window:
+            self.N_box.valueChanged.connect(self.slider_changed(self.N_box))
+            
+            self.dt_box.valueChanged.connect(self.slider_changed(self.dt_box))
         
         self.prandtl_box.valueChanged.connect(self.slider_changed(self.prandtl_box))
         self.rayleigh_box.valueChanged.connect(self.slider_changed(self.rayleigh_box))
@@ -197,56 +230,98 @@ class MainWindow(QMainWindow):
         self.rb_box.valueChanged.connect(self.slider_changed(self.rb_box))
         self.rc_box.valueChanged.connect(self.slider_changed(self.rc_box))
         
-        widgets = [
-            self.lorenz_button,
-            self.thomas_button,
-            self.langford_button,
-            self.rossler_button,
-        ]
+        if self.main_window:
+            widgets = [
+                self.lorenz_button,
+                self.thomas_button,
+                self.langford_button,
+                self.rossler_button,
+                self.new_window_button,
+            ]
+        else:
+            widgets = [self.compare_values_button]
         for w in widgets:
             self.layout_buttons.addWidget(w)
         widget = QWidget()
         widget.setLayout(self.layout_variables)
         self.layout_graph.addWidget(self.sc)
         self.layout_buttons.addLayout(self.layout_graph)
-        
-        self.typers = [
-            self.x0_label,
-            self.x0_box,
-            self.y0_label,
-            self.y0_box,
-            self.z0_label,
-            self.z0_box,
-            self.N_label,
-            self.N_box,
-            self.prandtl_label,
-            self.prandtl_box,
-            self.rayleigh_label,
-            self.rayleigh_box,
-            self.geo_label,
-            self.geo_box,
-            self.tb_label,
-            self.tb_box,
-            self.la_label,
-            self.la_box,
-            self.lb_label,
-            self.lb_box,
-            self.lc_label,
-            self.lc_box,
-            self.ld_label,
-            self.ld_box,
-            self.le_label,
-            self.le_box,
-            self.lf_label,
-            self.lf_box,
-            self.ra_label,
-            self.ra_box,
-            self.rb_label,
-            self.rb_box,
-            self.rc_label,
-            self.rc_box,
-            self.reset_button,
-        ]
+        if self.main_window:
+            self.typers = [
+                self.x0_label,
+                self.x0_box,
+                self.y0_label,
+                self.y0_box,
+                self.z0_label,
+                self.z0_box,
+                self.N_label,
+                self.N_box,
+                self.dt_label,
+                self.dt_box,
+                self.prandtl_label,
+                self.prandtl_box,
+                self.rayleigh_label,
+                self.rayleigh_box,
+                self.geo_label,
+                self.geo_box,
+                self.tb_label,
+                self.tb_box,
+                self.la_label,
+                self.la_box,
+                self.lb_label,
+                self.lb_box,
+                self.lc_label,
+                self.lc_box,
+                self.ld_label,
+                self.ld_box,
+                self.le_label,
+                self.le_box,
+                self.lf_label,
+                self.lf_box,
+                self.ra_label,
+                self.ra_box,
+                self.rb_label,
+                self.rb_box,
+                self.rc_label,
+                self.rc_box,
+                self.reset_button,
+            ]
+        else:
+            self.typers = [
+                self.x0_label,
+                self.x0_box,
+                self.y0_label,
+                self.y0_box,
+                self.z0_label,
+                self.z0_box,
+                self.prandtl_label,
+                self.prandtl_box,
+                self.rayleigh_label,
+                self.rayleigh_box,
+                self.geo_label,
+                self.geo_box,
+                self.tb_label,
+                self.tb_box,
+                self.la_label,
+                self.la_box,
+                self.lb_label,
+                self.lb_box,
+                self.lc_label,
+                self.lc_box,
+                self.ld_label,
+                self.ld_box,
+                self.le_label,
+                self.le_box,
+                self.lf_label,
+                self.lf_box,
+                self.ra_label,
+                self.ra_box,
+                self.rb_label,
+                self.rb_box,
+                self.rc_label,
+                self.rc_box,
+                self.reset_button,
+            ]
         self.layout_variables.setSpacing(1)
         for t in self.typers:
             self.layout_variables.addWidget(t)
@@ -259,6 +334,7 @@ class MainWindow(QMainWindow):
             t.hide()
         self.layout_variables.addLayout(self.layout_buttons)
         self.setCentralWidget(widget)
+
 
 
         self.show()
@@ -353,77 +429,101 @@ class MainWindow(QMainWindow):
             self.le_label,
             self.lf_label,
         ]
-    def slider_changed(self, box):
-        def slider_changed_nest(check):
-            if not box in (self.x0_box, self.y0_box, self.z0_box, self.N_box):
-                check /= 1000000
+    def slider_changed(self, box = 0):
+        def slider_changed_nest(check = 0):
+            if self.main_window:
+                if not box in (self.x0_box, self.y0_box, self.z0_box, self.N_box, self.dt_box):
+                    check /= 1000000
+            else:
+                if not box in (self.x0_box, self.y0_box, self.z0_box):
+                    check /= 1000000
             if box is self.x0_box:
                 self.x0 = check
-            if box is self.y0_box:
+            elif box is self.y0_box:
                 self.y0 = check
-            if box is self.z0_box:
+            elif box is self.z0_box:
                 self.z0 = check
-            if box is self.N_box:
+            elif self.main_window and box is self.N_box:
                 self.N = check
-            if box is self.prandtl_box:
+                for child in self.children:
+                    child.N = check
+                    child.slider_changed()()
+            elif self.main_window and box is self.dt_box:
+                self.dt = check
+                for child in self.children:
+                    child.dt = check
+                    child.slider_changed()()
+            elif box is self.prandtl_box:
                 self.prandtl = check
                 self.prandtl_label.setText('Prandtl Constant: ' + str(self.prandtl))
-            if box is self.rayleigh_box:
+            elif box is self.rayleigh_box:
                 self.rayleigh = check
                 self.rayleigh_label.setText('Rayleigh Constant: ' + str(self.rayleigh))
-            if box is self.geo_box:
+            elif box is self.geo_box:
                 self.geo = check
                 self.geo_label.setText('Geometric Constant: ' + str(self.geo))
-            if box is self.tb_box:
+            elif box is self.tb_box:
                 self.tb = check
                 self.tb_label.setText('b: ' + str(self.tb))
-            if box is self.la_box:
+            elif box is self.la_box:
                 self.la = check
                 self.la_label.setText('a: ' + str(self.la))
-            if box is self.lb_box:
+            elif box is self.lb_box:
                 self.lb = check
                 self.lb_label.setText('b: ' + str(self.lb))
-            if box is self.lc_box:
+            elif box is self.lc_box:
                 self.lc = check
                 self.lc_label.setText('c: ' + str(self.lc))
-            if box is self.ld_box:
+            elif box is self.ld_box:
                 self.ld = check
                 self.ld_label.setText('d: ' + str(self.ld))
-            if box is self.le_box:
+            elif box is self.le_box:
                 self.le = check
                 self.le_label.setText('e: ' + str(self.le))
-            if box is self.lf_box:
+            elif box is self.lf_box:
                 self.lf = check
                 self.lf_label.setText('f: ' + str(self.lf))
-            if box is self.ra_box:
+            elif box is self.ra_box:
                 self.ra = check
                 self.ra_label.setText('a: ' + str(self.ra))
-            if box is self.rb_box:
+            elif box is self.rb_box:
                 self.rb = check
                 self.rb_label.setText('b: ' + str(self.rb))
-            if box is self.rc_box:
+            elif box is self.rc_box:
                 self.rc = check
                 self.rc_label.setText('c: ' + str(self.rc))
             self.sc.axes.cla()
-            if self.lorenz_button.isChecked():
-                graph = lorenz(self.prandtl, self.rayleigh, self.geo, self.x0, self.y0, self.z0, self.dt, self.N)
-                self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'red', linewidth = 0.5)
+            if self.main_window:
+                if self.lorenz_button.isChecked():
+                    self.type = 'lorenz'
+                if self.thomas_button.isChecked():
+                    self.type = 'thomas'
+                if self.langford_button.isChecked():
+                    self.type = 'langford'
+                if self.rossler_button.isChecked():
+                    self.type = 'rossler'
+            
+            if self.g_type == 'lorenz':
+                self.graph = self.lorenz(self.prandtl, self.rayleigh, self.geo, self.x0, self.y0, self.z0, self.dt, self.N)
+                self.sc.axes.plot(self.graph[0], self.graph[1], self.graph[2], c = 'red', linewidth = 0.5)
                 self.sc.draw()
-            if self.thomas_button.isChecked():
-                graph = thomas(self.tb, self.x0, self.y0, self.z0, self.dt, self.N)
-                self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'orange', linewidth = 0.5)
+            if self.g_type == 'thomas':
+                self.graph = self.thomas(self.tb, self.x0, self.y0, self.z0, self.dt, self.N)
+                self.sc.axes.plot(self.graph[0], self.graph[1], self.graph[2], c = 'orange', linewidth = 0.5)
                 self.sc.draw()
-            if self.langford_button.isChecked():
-                graph = langford(self.la, self.lb, self.lc, self.ld, self.le, self.lf, self.x0, self.y0, self.z0, self.dt, self.N)
-                self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'green', linewidth = 0.5)
+            if self.g_type == 'langford':
+                self.graph = self.langford(self.la, self.lb, self.lc, self.ld, self.le, self.lf, self.x0, self.y0, self.z0, self.dt, self.N)
+                self.sc.axes.plot(self.graph[0], self.graph[1], self.graph[2], c = 'green', linewidth = 0.5)
                 self.sc.draw()
-            if self.rossler_button.isChecked():
-                graph = rossler(self.ra, self.rb, self.rc, self.x0, self.y0, self.z0, self.dt, self.N)
-                self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'blue', linewidth = 0.5)
+            if self.g_type == 'rossler':
+                self.graph = self.rossler(self.ra, self.rb, self.rc, self.x0, self.y0, self.z0, self.dt, self.N)
+                self.sc.axes.plot(self.graph[0], self.graph[1], self.graph[2], c = 'blue', linewidth = 0.5)
                 self.sc.draw()
+                
         return slider_changed_nest
         
     def lorenz_selected(self):
+        self.g_type = 'lorenz'
         for i in self.not_lorenz:
             i.hide()
         self.x0_box.show()
@@ -432,8 +532,11 @@ class MainWindow(QMainWindow):
         self.y0_label.show()
         self.z0_box.show()
         self.z0_label.show()
-        self.N_label.show()
-        self.N_box.show()
+        if self.main_window:
+            self.N_label.show()
+            self.N_box.show()
+            self.dt_label.show()
+            self.dt_box.show()
         self.reset_button.show()
         self.prandtl_box.show()
         self.rayleigh_box.show()
@@ -442,12 +545,13 @@ class MainWindow(QMainWindow):
         self.rayleigh_label.show()
         self.geo_label.show()
         self.sc.axes.cla()
-        graph = lorenz(self.prandtl, self.rayleigh, self.geo, self.x0, self.y0, self.z0, self.dt, self.N)
-        self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'red', linewidth = 0.5)
+        self.graph = self.lorenz(self.prandtl, self.rayleigh, self.geo, self.x0, self.y0, self.z0, self.dt, self.N)
+        self.sc.axes.plot(self.graph[0], self.graph[1], self.graph[2], c = 'red', linewidth = 0.5)
         self.sc.draw()
         
     
     def thomas_selected(self):
+        self.g_type = 'thomas'
         for i in self.not_thomas:
             i.hide()
         self.x0_box.show()
@@ -456,18 +560,22 @@ class MainWindow(QMainWindow):
         self.y0_label.show()
         self.z0_box.show()
         self.z0_label.show()
-        self.N_label.show()
-        self.N_box.show()
+        if self.main_window:
+            self.N_label.show()
+            self.N_box.show()
+            self.dt_label.show()
+            self.dt_box.show()
         self.reset_button.show()
         self.tb_box.show()
         self.tb_label.show()
         self.sc.axes.cla()
-        graph = thomas(self.tb, self.x0, self.y0, self.z0, self.dt, self.N)
-        self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'orange', linewidth = 0.5)
+        self.graph = self.thomas(self.tb, self.x0, self.y0, self.z0, self.dt, self.N)
+        self.sc.axes.plot(self.graph[0], self.graph[1], self.graph[2], c = 'orange', linewidth = 0.5)
         self.sc.draw()
         self.layout_variables.addLayout(self.layout_buttons)
                 
     def langford_selected(self):
+        self.g_type = 'langford'
         for i in self.not_langford:
             i.hide()
         self.x0_box.show()
@@ -476,8 +584,11 @@ class MainWindow(QMainWindow):
         self.y0_label.show()
         self.z0_box.show()
         self.z0_label.show()
-        self.N_label.show()
-        self.N_box.show()
+        if self.main_window:
+            self.N_label.show()
+            self.N_box.show()
+            self.dt_label.show()
+            self.dt_box.show()
         self.reset_button.show()
         self.la_box.show()
         self.lb_box.show()
@@ -492,11 +603,12 @@ class MainWindow(QMainWindow):
         self.le_label.show()
         self.lf_label.show()
         self.sc.axes.cla()
-        graph = langford(self.la, self.lb, self.lc, self.ld, self.le, self.lf, self.x0, self.y0, self.z0, self.dt, self.N)
-        self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'green', linewidth = 0.5)
+        self.graph = self.langford(self.la, self.lb, self.lc, self.ld, self.le, self.lf, self.x0, self.y0, self.z0, self.dt, self.N)
+        self.sc.axes.plot(self.graph[0], self.graph[1], self.graph[2], c = 'green', linewidth = 0.5)
         self.sc.draw()
         
     def rossler_selected(self):
+        self.g_type = 'rossler'
         for i in self.not_rossler:
             i.hide()
         self.x0_box.show()
@@ -505,8 +617,11 @@ class MainWindow(QMainWindow):
         self.y0_label.show()
         self.z0_box.show()
         self.z0_label.show()
-        self.N_label.show()
-        self.N_box.show()
+        if self.main_window:
+            self.N_label.show()
+            self.N_box.show()
+            self.dt_label.show()
+            self.dt_box.show()
         self.reset_button.show()
         self.ra_box.show()
         self.rb_box.show()
@@ -515,16 +630,98 @@ class MainWindow(QMainWindow):
         self.rb_label.show()
         self.rc_label.show()
         self.sc.axes.cla()
-        graph = rossler(self.ra, self.rb, self.rc, self.x0, self.y0, self.z0, self.dt, self.N)
-        self.sc.axes.plot(graph[0], graph[1], graph[2], c = 'blue', linewidth = 0.5)
+        self.graph = self.rossler(self.ra, self.rb, self.rc, self.x0, self.y0, self.z0, self.dt, self.N)
+        self.sc.axes.plot(self.graph[0], self.graph[1], self.graph[2], c = 'blue', linewidth = 0.5)
         self.sc.draw()
+    
+    def new_window(self):
+        if not self.g_type == '':
+            self.children.append(SubWindow(self.g_type, self))
         
+    def lorenz(self, prandtl, rayleigh, geo, x0, y0, z0, dt, N):
+        x = x0
+        y = y0
+        z = z0
+        x_list = [x0]
+        y_list = [y0]
+        z_list = [z0]
+        for i in range(N):
+            dx = prandtl*(y-x)
+            dy = x*(rayleigh-z)-y
+            dz = (x*y)-(geo*z)
+            x += dx * dt
+            y += dy * dt
+            z += dz * dt
+            x_list.append(x)
+            y_list.append(y)
+            z_list.append(z)
+        return [x_list, y_list, z_list]
+
+    def thomas(self, b, x0, y0, z0, dt, N):
+        x = x0
+        y = y0
+        z = z0
+        x_list = [x0]
+        y_list = [y0]
+        z_list = [z0]
+        for i in range(N):
+            dx = np.sin(y) - (b * x)
+            dy = np.sin(z) - (b * y)
+            dz = np.sin(x) - (b * z)
+            x += dx * dt
+            y += dy * dt
+            z += dz * dt
+            x_list.append(x)
+            y_list.append(y)
+            z_list.append(z)
+        return [x_list, y_list, z_list]
+
+    def langford(self, a, b, c, d, e, f, x0, y0, z0, dt, N):
+        x = x0
+        y = y0
+        z = z0
+        x_list = [x0]
+        y_list = [y0]
+        z_list = [z0]
+        for i in range(N):
+            dx = (z - b) * x - d * y
+            dy = d * x + (z - b) * y
+            dz = c + a * z - ((z ** 3) / 3) - ((x ** 2) + (y ** 2)) * (1 + e * z) + f * z * (x ** 3)
+            x += dx * dt
+            y += dy * dt
+            z += dz * dt
+            x_list.append(x)
+            y_list.append(y)
+            z_list.append(z)
+        return [x_list, y_list, z_list]
+
+    def rossler(self, a, b, c, x0, y0, z0, dt, N):
+        x = x0
+        y = y0
+        z = z0
+        x_list = [x0]
+        y_list = [y0]
+        z_list = [z0]
+        for i in range(N):
+            dx = -y - z
+            dy = x + a * y
+            dz = b + z * (x - c)
+            x += dx * dt
+            y += dy * dt
+            z += dz * dt
+            x_list.append(x)
+            y_list.append(y)
+            z_list.append(z)
+        return [x_list, y_list, z_list]
+    
     def reset(self):
         self.x0_box.setValue(0.1)
         self.y0_box.setValue(0)
         self.z0_box.setValue(0)
         
-        self.N_box.setValue(10000)
+        if self.main_window:
+            self.N_box.setValue(100000)
+            self.dt_box.setValue(0.001)
         
         self.prandtl_box.setValue(int(1000000*self.defaults[0]))
         self.rayleigh_box.setValue(int(1000000*self.defaults[1]))
@@ -547,8 +744,52 @@ class MainWindow(QMainWindow):
         self.sc.draw()
         
         
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MainWindow()
-    window.show()
-    sys.exit(app.exec())
+class SubWindow(MainWindow):
+    main_window = False
+    def __init__(self, g_type, parent = None):
+        self.g_type = g_type
+        self.parent = parent
+        self.children = []
+        super().__init__()
+        if self.g_type == 'lorenz':
+            self.lorenz_selected()
+        if self.g_type == 'thomas':
+            self.thomas_selected()
+        if self.g_type == 'langford':
+            self.langford_selected()
+        if self.g_type == 'rossler':
+            self.rossler_selected()
+        self.compare_values_button.clicked.connect(self.compare)
+    
+    def compare(self):
+        self.children.append(ComparisonWindow(self, np.array(self.parent.graph), np.array(self.graph), self.N, self.dt))
+        self.children[-1].show()
+            
+class ComparisonWindow(QMainWindow):
+    def __init__(self, parent, parent_values, child_values, N, dt):
+        super().__init__()
+        self.setWindowTitle('Comparison')
+        self.parent = parent
+        
+        self.x_diff = child_values[0] - parent_values[0]
+        self.y_diff = child_values[1] - parent_values[1]
+        self.z_diff = child_values[2] - parent_values[2]
+        
+        self.diff = np.sqrt(self.x_diff**2 + self.y_diff**2 + self.z_diff**2)
+    
+        self.layout = QVBoxLayout()
+        self.sc = MplCanvas2d(self, width=10, height=8, dpi=100)
+        self.sc.setFixedHeight(800)
+        self.sc.axes.plot(np.linspace(0, N * dt, N + 1), self.diff)
+        self.sc.axes.set_yscale('log')
+        self.sc.draw()
+        self.layout.addWidget(self.sc)
+        #widget = QWidget()
+        #self.layout.addWidget(widget)
+        self.setCentralWidget(self.sc)
+    
+
+app = QApplication(sys.argv)
+window = MainWindow()
+window.show()
+app.exec()
