@@ -111,12 +111,14 @@ class MainWindow(QMainWindow):
             self.dt_label = QLabel('dt')
             self.dt_box = QDoubleSpinBox()
             self.dt_box.setRange(0, 10)
-            self.dt_box.setValue(self.dt)
             self.dt_box.setDecimals(10)
+            self.dt_box.setValue(self.dt)
+            self.dt_box.setSingleStep(0.0000000001)
         
         self.x0_box.setSingleStep(0.0000000001)
         self.y0_box.setSingleStep(0.0000000001)
         self.z0_box.setSingleStep(0.0000000001)
+        
         
         self.reset_button = QPushButton('Reset')
         self.reset_button.clicked.connect(self.reset)
