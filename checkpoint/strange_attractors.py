@@ -859,6 +859,7 @@ class ComparisonWindow(QMainWindow):
         self.time_label.setText(f'Time: {round(max_time * self.dt, self.round_decimals)}')
         self.lyapunov = max_lyapunov
         self.lyapunov_label.setText(f'Lyapunov Exponent: {self.lyapunov}')
+        self.lyapunov_box.setValue(self.lyapunov)
         
         
 
