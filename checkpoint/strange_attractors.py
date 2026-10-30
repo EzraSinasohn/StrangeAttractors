@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from matplotlib.figure import Figure
+import math
 
 class MplCanvas(FigureCanvasQTAgg):
 
@@ -772,12 +773,14 @@ class ComparisonWindow(QMainWindow):
         super().__init__()
         self.setWindowTitle('Comparison')
         self.parent = parent
+        self.N = N
+        self.dt = dt
         
         self.x_diff = child_values[0] - parent_values[0]
         self.y_diff = child_values[1] - parent_values[1]
         self.z_diff = child_values[2] - parent_values[2]
         
-        self.diff = np.sqrt(self.x_diff**2 + self.y_diff**2 + self.z_diff**2)
+        self.diff = np.sqrt(self.x_diff**2 + self.y_diff**2 + self.z_diff**2)      
     
         self.layout = QVBoxLayout()
         self.sc = MplCanvas2d(self, width=10, height=8, dpi=100)
@@ -785,11 +788,39 @@ class ComparisonWindow(QMainWindow):
         self.sc.axes.plot(np.linspace(0, N * dt, N + 1), self.diff)
         self.sc.axes.set_yscale('log')
         self.sc.draw()
+        
+        self.time = 0
+        self.lyapunov = 0
+        
+        self.time_label = QLabel(f'Time: {self.time * self.dt}')
+        self.lyapunov_label = QLabel(f'Lyapunov Exponent: {self.lyapunov}')
+        
+        self.lyapunov_box = QSlider()
+        self.lyapunov_box.setRange(0, N)
+        self.lyapunov_box.setValue(0)
+        self.lyapunov_box.setOrientation(Qt.Horizontal)
+        self.lyapunov_box.valueChanged.connect(self.get_lyapunov)
+        
+        widget = QWidget()
         self.layout.addWidget(self.sc)
-        #widget = QWidget()
-        #self.layout.addWidget(widget)
-        self.setCentralWidget(self.sc)
-    
+        self.layout.addWidget(self.time_label)
+        self.layout.addWidget(self.lyapunov_label)
+        self.layout.addWidget(self.lyapunov_box)
+        self.setCentralWidget(widget)
+        widget.setLayout(self.layout)
+        
+    def get_lyapunov(self, time):
+        self.time_label.setText(f'Time: {time * self.dt}')
+        if time == 0:
+            self.lyapunov = 0
+            self.lyapunov_label.setText(f'Lyapunov Exponent: {self.lyapunov}')
+            return 0
+        exponent = 0
+        for i in range(1, time):
+            exponent += math.log(self.diff[i] / self.diff[i-1])
+        self.lyapunov = exponent / (time * self.dt)
+        self.lyapunov_label.setText(f'Lyapunov Exponent: {self.lyapunov}')
+        return self.lyapunov
 
 app = QApplication(sys.argv)
 window = MainWindow()
