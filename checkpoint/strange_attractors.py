@@ -764,8 +764,11 @@ class MainWindow(QMainWindow):
         self.sc.draw()
     
     def closeEvent(self, event):
-        QApplication.closeAllWindows()
-        event.accept()
+        if self.main_window:
+            QApplication.closeAllWindows()
+            event.accept()
+        else:
+            super().closeEvent(event)
         
         
 class SubWindow(MainWindow):
