@@ -210,6 +210,23 @@ class MainWindow(QMainWindow):
         self.rb_box.setOrientation(Qt.Horizontal)
         self.rc_box.setOrientation(Qt.Horizontal)
         
+        self.prandtl_label.setToolTip('The ratio of viscosity to thermal diffusivity, which can be used to estimate the thermal conductivity of gases at high temperatures.')
+        self.rayleigh_label.setToolTip("A number associated with a fluid's buoyancy-driven flow, with lower values denoting a more laminar flow and higher values denoting a more turbulent flow.")
+        self.geo_label.setToolTip('A constant that prevents the graph from scaling infinitely.')
+        
+        self.tb_label.setToolTip('')
+        
+        self.la_label.setToolTip('')
+        self.lb_label.setToolTip('')
+        self.lc_label.setToolTip('')
+        self.ld_label.setToolTip('')
+        self.le_label.setToolTip('')
+        self.lf_label.setToolTip('')
+        
+        self.ra_label.setToolTip('')
+        self.rb_label.setToolTip('')
+        self.rc_label.setToolTip('')
+        
         self.x0_box.valueChanged.connect(self.slider_changed(self.x0_box))
         self.y0_box.valueChanged.connect(self.slider_changed(self.y0_box))
         self.z0_box.valueChanged.connect(self.slider_changed(self.z0_box))
@@ -745,6 +762,10 @@ class MainWindow(QMainWindow):
 
         self.sc.axes.view_init(azim = -60, elev = 30, roll = 0)
         self.sc.draw()
+    
+    def closeEvent(self, event):
+        QApplication.closeAllWindows()
+        event.accept()
         
         
 class SubWindow(MainWindow):
@@ -775,6 +796,7 @@ class ComparisonWindow(QMainWindow):
         self.parent = parent
         self.N = N
         self.dt = dt
+        self.round_decimals = int(abs(math.log(self.dt, 10))) + 1
         
         self.x_diff = child_values[0] - parent_values[0]
         self.y_diff = child_values[1] - parent_values[1]
@@ -792,7 +814,7 @@ class ComparisonWindow(QMainWindow):
         self.time = 0
         self.lyapunov = 0
         
-        self.time_label = QLabel(f'Time: {self.time * self.dt}')
+        self.time_label = QLabel(f'Time: {round(self.time * self.dt, self.round_decimals)}')
         self.lyapunov_label = QLabel(f'Lyapunov Exponent: {self.lyapunov}')
         
         self.lyapunov_box = QSlider()
@@ -801,26 +823,41 @@ class ComparisonWindow(QMainWindow):
         self.lyapunov_box.setOrientation(Qt.Horizontal)
         self.lyapunov_box.valueChanged.connect(self.get_lyapunov)
         
+        self.max_lyapunov_button = QPushButton('Max Lyapunov')
+        self.max_lyapunov_button.clicked.connect(self.get_max_lyapunov)
+        
         widget = QWidget()
         self.layout.addWidget(self.sc)
         self.layout.addWidget(self.time_label)
         self.layout.addWidget(self.lyapunov_label)
         self.layout.addWidget(self.lyapunov_box)
+        self.layout.addWidget(self.max_lyapunov_button)
         self.setCentralWidget(widget)
         widget.setLayout(self.layout)
-        
+    
     def get_lyapunov(self, time):
-        self.time_label.setText(f'Time: {time * self.dt}')
+        self.time_label.setText(f'Time: {round(time * self.dt, self.round_decimals)}')
         if time == 0:
             self.lyapunov = 0
             self.lyapunov_label.setText(f'Lyapunov Exponent: {self.lyapunov}')
-            return 0
-        exponent = 0
-        for i in range(1, time):
-            exponent += math.log(self.diff[i] / self.diff[i-1])
+            return
+        exponent = math.log(self.diff[time] / self.diff[0])
         self.lyapunov = exponent / (time * self.dt)
         self.lyapunov_label.setText(f'Lyapunov Exponent: {self.lyapunov}')
-        return self.lyapunov
+            
+    def get_max_lyapunov(self):
+        max_time = 0
+        max_lyapunov = 0
+        for i in range(1, self.N):
+            current_lyapunov = math.log(self.diff[i] / self.diff[0]) / (i * self.dt)
+            if current_lyapunov > max_lyapunov:
+                max_time = i
+                max_lyapunov = current_lyapunov
+        self.time_label.setText(f'Time: {round(max_time * self.dt, self.round_decimals)}')
+        self.lyapunov = max_lyapunov
+        self.lyapunov_label.setText(f'Lyapunov Exponent: {self.lyapunov}')
+        
+        
 
 app = QApplication(sys.argv)
 window = MainWindow()
